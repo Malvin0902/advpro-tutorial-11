@@ -51,3 +51,36 @@
 
 ![alt text](image-2.png)
 
+### **Rolling Update & Kubernetes Manifest File**
+
+#### **1. Perbedaan antara Rolling Update dan Recreate deployment strategy**
+* Perbedaan utama antara strategi deployment **Rolling Update** dan **Recreate** terletak pada bagaimana keduanya menangani ketersediaan aplikasi selama proses update.
+* Dengan strategi **Recreate**, semua Pod yang ada dari versi lama **dihentikan terlebih dahulu** sebelum Pod baru dibuat. Hal ini menyebabkan **downtime sementara** karena ada jeda di mana tidak ada instance aplikasi yang berjalan.
+* Sebaliknya, strategi **Rolling Update** memastikan **zero downtime** dengan mengganti Pod lama secara bertahap dengan yang baru. Pod baru dibuat dan siap sebelum Pod lama dihentikan, yang berarti aplikasi tetap dapat diakses sepanjang proses update.
+
+#### **2. Menggunakan Update Image dan Rollback pada Spring Petclinic REST**
+* Dari pengalaman saya dengan deployment **Spring Petclinic REST** di cluster Minikube, saya melakukan beberapa operasi penting:
+* Pertama, saya melakukan update image dari versi 3.0.2 ke 3.2.1 menggunakan `kubectl set image deployments/spring-petclinic-rest spring-petclinic-rest=docker.io/springcommunity/spring-petclinic-rest:3.2.1`. Proses ini berjalan lancar dengan rolling update yang dapat dilihat melalui `kubectl rollout status`.
+* Kemudian saya mencoba update ke versi 4.0, namun mengalami masalah karena image dengan tag tersebut tidak tersedia di registry (manifest unknown error). Pods gagal start dengan status `ErrImagePull`.
+* Untuk mengatasi masalah ini, saya menggunakan `kubectl rollout undo deployments/spring-petclinic-rest` yang berhasil mengembalikan deployment ke versi sebelumnya (3.2.1) dan semua Pod kembali berjalan normal.
+![alt text](image-4.png)
+![alt text](image-3.png)
+![alt text](image-5.png)
+#### **3. Export dan Re-deploy menggunakan Manifest File**
+* Untuk memahami konsep Infrastructure as Code, saya mengexport konfigurasi deployment dan service yang sudah berjalan menggunakan:
+```cmd
+kubectl get deployments/spring-petclinic-rest -o yaml > deployment.yaml
+kubectl get services/spring-petclinic-rest -o yaml > service.yaml
+```
+* Setelah itu saya menghapus cluster dengan `minikube delete` dan membuat cluster baru dengan `minikube start`.
+* Dengan menggunakan manifest file yang sudah diexport, saya dapat mendeploy ulang aplikasi dengan mudah:
+```cmd
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+```
+
+#### **4. Keuntungan menggunakan Kubernetes Manifest File**
+* Dari pengalaman saya, menggunakan Kubernetes manifest file memiliki keuntungan yang signifikan. Hal ini membantu mengurangi kemungkinan membuat kesalahan manual selama deployment karena semua konfigurasi ditulis secara eksplisit dalam file YAML.
+* Ketika mendeploy aplikasi secara manual menggunakan perintah kubectl individual, saya harus mengingat opsi dan parameter yang tepat setiap kali, yang rawan kesalahan dan memakan waktu. Sebaliknya, menerapkan manifest file menggunakan `kubectl apply -f` jauh lebih efisien dan dapat diulang.
+* Proses ini membuat deployment lebih bersih, dapat dikontrol versinya, dan lebih mudah dipelihara—terutama dalam lingkungan tim. Manifest file juga memungkinkan backup konfigurasi yang mudah dan memungkinkan recreate environment yang identik kapan saja diperlukan.
+
